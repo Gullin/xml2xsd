@@ -86,3 +86,9 @@ xsd-fil relativt där programmet körs ("körningskatalog").
 ```bash
 dotnet new gitignore
 ```
+### GitHub
+Om push remote till GitHub.
+1. Skapa lokal branch, ```git branch -M main```
+2. Skapa tomt repo på GitHub
+3. Lokalt ```git add origin {sökväg till repo}.git```
+4. Lokalt ```git push -u origin main```
