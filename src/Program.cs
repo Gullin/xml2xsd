@@ -194,6 +194,7 @@ class Program
             writer.WriteString("");
         }
 
+        writer.WriteWhitespace(Environment.NewLine + new string(' ', indent));
         writer.WriteEndElement();
     }
 
