@@ -42,8 +42,8 @@ class Program
     static void PrintUsage()
     {
         Console.WriteLine("Användning:");
-        Console.WriteLine("  dotnet run --xsd <fil1.xml> <katalog> ...   -> Generera XSD från XML");
-        Console.WriteLine("  dotnet run --xmltemplate <fil.xsd>          -> Generera XML-instansmall från XSD");
+        Console.WriteLine("  dotnet run --xsd <fil1.xml> <katalog> ...                   -> Generera XSD från XML");
+        Console.WriteLine("  dotnet run --xmltemplate <fil.xsd> [--withcomments]         -> Generera XML-instansmall från XSD");
         Console.WriteLine();
     }
 
@@ -86,13 +86,16 @@ class Program
     // --- LÄGE 2: Generera XML-mall från XSD ---
     static void RunXmlTemplateGeneration(string[] inputs)
     {
-        if (inputs.Length != 1)
+        bool withComments = inputs.Contains("--withcomments", StringComparer.OrdinalIgnoreCase);
+        string? xsdFile = inputs.FirstOrDefault(x => !x.Equals("--withcomments", StringComparison.OrdinalIgnoreCase));
+
+        if (xsdFile == null)
         {
-            Console.WriteLine("❌ Ange exakt en XSD-fil för att skapa XML-mall.");
+            Console.WriteLine("❌ Ange en XSD-fil för att skapa XML-mall.");
             return;
         }
 
-        string xsdPath = Path.GetFullPath(inputs[0]);
+        string xsdPath = Path.GetFullPath(xsdFile);
         if (!File.Exists(xsdPath))
         {
             Console.WriteLine($"❌ Hittade inte XSD-fil: {xsdPath}");
@@ -111,7 +114,7 @@ class Program
 
         foreach (XmlSchemaElement element in schema.Elements.Values)
         {
-            WriteElement(writer, element, schema, indent: 0);
+            WriteElement(writer, element, schema, indent: 0, withComments);
         }
 
         writer.WriteEndDocument();
@@ -144,13 +147,16 @@ class Program
         return files.Distinct().OrderBy(f => f).ToList();
     }
 
-    // Skriver ut element med kommentarer
-    static void WriteElement(XmlWriter writer, XmlSchemaElement element, XmlSchema schema, int indent)
+    // Skriver ut element, med eller utan kommentarer
+    static void WriteElement(XmlWriter writer, XmlSchemaElement element, XmlSchema schema, int indent, bool withComments)
     {
-        string occursInfo = GetOccursInfo(element);
+        if (withComments)
+        {
+            string occursInfo = GetOccursInfo(element);
+            writer.WriteWhitespace(Environment.NewLine + new string(' ', indent));
+            writer.WriteComment($" Element: <{element.Name}> {occursInfo} ");
+        }
 
-        writer.WriteWhitespace(Environment.NewLine + new string(' ', indent));
-        writer.WriteComment($" Element: <{element.Name}> {occursInfo} ");
         writer.WriteWhitespace(Environment.NewLine + new string(' ', indent));
         writer.WriteStartElement(element.Name);
 
@@ -161,9 +167,12 @@ class Program
             {
                 foreach (XmlSchemaAttribute attr in complexType.AttributeUses.Values)
                 {
-                    string attrInfo = attr.Use == XmlSchemaUse.Required ? "obligatoriskt" : "valfritt";
-                    writer.WriteWhitespace(Environment.NewLine + new string(' ', indent + 2));
-                    writer.WriteComment($" Attribut: {attr.Name} ({attrInfo}) ");
+                    if (withComments)
+                    {
+                        string attrInfo = attr.Use == XmlSchemaUse.Required ? "obligatoriskt" : "valfritt";
+                        writer.WriteWhitespace(Environment.NewLine + new string(' ', indent + 2));
+                        writer.WriteComment($" Attribut: {attr.Name} ({attrInfo}) ");
+                    }
                     writer.WriteAttributeString(attr.Name, "");
                 }
             }
@@ -175,7 +184,7 @@ class Program
                 {
                     if (item is XmlSchemaElement child)
                     {
-                        WriteElement(writer, child, schema, indent + 2);
+                        WriteElement(writer, child, schema, indent + 2, withComments);
                     }
                 }
             }
